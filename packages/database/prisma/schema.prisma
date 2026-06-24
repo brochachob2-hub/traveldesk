@@ -1,0 +1,246 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PlatformRole {
+  USER
+  SUPER_ADMIN
+}
+
+enum OrganizationRole {
+  OWNER
+  ADMIN
+  AGENT
+  VIEWER
+}
+
+enum OrganizationStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+}
+
+enum ProductStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum BookingStatus {
+  PENDING_PAYMENT
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  REFUNDED
+}
+
+enum FlightOrderStatus {
+  PENDING_PAYMENT
+  BOOKED
+  TICKETED
+  CANCELLED
+  REFUNDED
+  FAILED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+model User {
+  id             String           @id @default(cuid())
+  externalAuthId String?          @unique
+  email          String?          @unique
+  phoneNumber    String?          @unique
+  passwordHash   String?
+  emailVerifiedAt DateTime?
+  fullName       String?
+  cityOrigin     String?
+  firstName      String?
+  lastName       String?
+  platformRole   PlatformRole     @default(USER)
+  memberships    Membership[]
+  bookings       Booking[]        @relation("CustomerBookings")
+  sessions       AuthSession[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+}
+
+model AuthSession {
+  id          String    @id @default(cuid())
+  userId      String
+  tokenHash   String
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  userAgent   String?
+  ipAddress   String?
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId, expiresAt])
+  @@index([expiresAt, revokedAt])
+}
+
+model Organization {
+  id              String             @id @default(cuid())
+  name            String
+  slug            String             @unique
+  status          OrganizationStatus @default(PENDING)
+  brandColor      String             @default("#0F766E")
+  logoUrl         String?
+  currency        String             @default("PHP")
+  timezone        String             @default("Asia/Manila")
+  supportEmail    String?
+  supportPhone    String?
+  subscriptionPlan String            @default("STARTER")
+  memberships     Membership[]
+  products        TravelProduct[]
+  bookings        Booking[]
+  payments        Payment[]
+  flightOrders    FlightOrder[]
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@index([status])
+}
+
+model Membership {
+  id             String           @id @default(cuid())
+  userId         String
+  organizationId String
+  role           OrganizationRole @default(AGENT)
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime         @default(now())
+
+  @@unique([userId, organizationId])
+  @@index([organizationId, role])
+}
+
+model TravelProduct {
+  id             String        @id @default(cuid())
+  organizationId String
+  name           String
+  slug           String
+  summary        String
+  description    String
+  destination    String
+  durationDays   Int
+  status         ProductStatus @default(DRAFT)
+  coverImageUrl  String?
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  departures     Departure[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@unique([organizationId, slug])
+  @@index([organizationId, status])
+}
+
+model Departure {
+  id             String        @id @default(cuid())
+  productId      String
+  startsAt       DateTime
+  endsAt         DateTime
+  capacity       Int
+  reservedSeats  Int           @default(0)
+  priceMinor     Int
+  currency       String        @default("PHP")
+  product        TravelProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  bookings       Booking[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([productId, startsAt])
+}
+
+model Booking {
+  id             String        @id @default(cuid())
+  reference      String        @unique
+  organizationId String
+  departureId    String
+  customerId     String?
+  guestEmail     String
+  guestPhone     String?
+  seats          Int
+  totalMinor     Int
+  currency       String        @default("PHP")
+  status         BookingStatus @default(PENDING_PAYMENT)
+  expiresAt      DateTime?
+  accessTokenHash String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  departure      Departure     @relation(fields: [departureId], references: [id], onDelete: Restrict)
+  customer       User?         @relation("CustomerBookings", fields: [customerId], references: [id], onDelete: SetNull)
+  travelers      BookingTraveler[]
+  payments       Payment[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([organizationId, status, createdAt])
+  @@index([status, expiresAt])
+  @@index([guestEmail])
+}
+
+model Payment {
+  id                String        @id @default(cuid())
+  bookingId         String
+  organizationId    String
+  provider          String
+  providerPaymentId String?
+  idempotencyKey    String        @unique
+  status            PaymentStatus @default(PENDING)
+  amountMinor       Int
+  currency          String
+  checkoutUrl       String?
+  providerData      Json?
+  booking           Booking       @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  organization      Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@unique([provider, providerPaymentId])
+  @@index([bookingId, status])
+  @@index([organizationId, status, createdAt])
+}
+
+model BookingTraveler {
+  id          String   @id @default(cuid())
+  bookingId   String
+  firstName   String
+  lastName    String
+  birthDate   DateTime?
+  nationality String?
+  booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+}
+
+model FlightOrder {
+  id                String            @id @default(cuid())
+  reference         String            @unique
+  organizationId    String
+  provider          String
+  providerOrderId   String?
+  providerBookingRef String?
+  status            FlightOrderStatus @default(PENDING_PAYMENT)
+  customerEmail     String
+  baseAmountMinor   Int
+  markupAmountMinor Int               @default(0)
+  totalAmountMinor  Int
+  currency          String            @default("PHP")
+  offerSnapshot     Json
+  organization      Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@index([organizationId, status, createdAt])
+  @@index([provider, providerOrderId])
+}

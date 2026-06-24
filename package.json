@@ -1,0 +1,31 @@
+{
+  "name": "traveldesk-platform",
+  "private": true,
+  "packageManager": "npm@11.13.0",
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "typecheck": "turbo typecheck",
+    "test": "turbo test",
+    "format": "prettier --write .",
+    "db:generate": "npm run db:generate --workspace=@traveldesk/database",
+    "db:migrate": "npm run db:migrate --workspace=@traveldesk/database"
+  },
+  "devDependencies": {
+    "prettier": "latest",
+    "turbo": "latest",
+    "typescript": "latest"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "overrides": {
+    "@nestjs/platform-express@11.1.27": {
+      "multer": "2.2.0"
+    },
+    "next@16.2.9": {
+      "postcss": "8.5.15"
+    }
+  }
+}
