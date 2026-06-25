@@ -1,0 +1,13 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "build": {
+    "builder": "NIXPACKS",
+    "buildCommand": "npm run build --workspace @traveldesk/database && npm run build --workspace @traveldesk/api"
+  },
+  "deploy": {
+    "preDeployCommand": "npm run migrate:deploy --workspace @traveldesk/api",
+    "startCommand": "npm run start --workspace @traveldesk/api",
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 10
+  }
+}

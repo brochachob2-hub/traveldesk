@@ -6,6 +6,7 @@
     "dev": "nest start --watch",
     "build": "nest build",
     "start": "node dist/main.js",
+    "migrate:deploy": "npx prisma migrate deploy --schema=../../packages/database/prisma/schema.prisma",
     "start:migrate": "npx prisma migrate deploy --schema=../../packages/database/prisma/schema.prisma && node dist/main.js",
     "typecheck": "tsc --noEmit",
     "test": "jest --passWithNoTests"
